@@ -1,6 +1,7 @@
 package com.github.fsteitz.kostack
 
 import java.io.BufferedReader
+import java.io.File
 import java.io.IOException
 import java.io.InputStreamReader
 import java.nio.file.Files
@@ -12,39 +13,41 @@ fun main(args: Array<String>) {
   if (args.isEmpty()) {
     System.err.println("FEHLER: Es wurden keine Programmparameter uebergeben")
     exitProcess(-1)
-  } else if (args.size != 2) {
+  } else if (args.size != 3) {
     System.err.println("FEHLER: Programmparameter sind ungueltig")
     exitProcess(-1)
   }
 
-  Kostack.createThreadDumps(args[0], args[1])
+  Kostack.createThreadDumps(AppParams(args[0], args[1], args[2]))
 }
 
+/**
+ * @author Florian Steitz (florian@fsteitz.com)
+ */
 object Kostack {
 
   private const val DUMP_COUNT = 6                        // Iterationen
   private const val DUMP_DELAY_S = 5                      // In Sekunden
   private const val DUMP_DELAY_MS = DUMP_DELAY_S * 1000   // In Millisekunden
 
-  private const val PROCESS_NAME_PART = "SHD ECORO"
   private const val DUMP_FILE_PATTERN = "\\thread_%s_%s__%s.dump"
 
-  fun createThreadDumps(jdkHome: String, dumpFileBasePath: String) {
-    println("JDK-Home: $jdkHome")
+  fun createThreadDumps(appParams: AppParams) {
+    println("JDK-Home: ${appParams.jdkBin}")
 
     try {
-      val jstackPattern = "$jdkHome\\jstack -l %s"
-      val ecoroPIDs = getEcoroPIDs()
+      val jstackPattern = "${appParams.jdkBin}${File.separator}jstack -l %s"
+      val pidList = findPIDs(appParams.processSearchText)
 
-      if (ecoroPIDs.size == 0) {
-        println("FEHLER: Es konnte kein aktiver Prozess von SHD ECORO ermittelt werden. Es wurden keine ThreadDumps erstellt!")
+      if (pidList.isEmpty()) {
+        println("FEHLER: Es konnte kein aktiver Prozess fuer '${appParams.processSearchText}' ermittelt werden. Es wurden keine ThreadDumps erstellt!")
         exitProcess(-1)
       }
 
-      println("Alle ermittelten PIDs von SHD ECORO: $ecoroPIDs")
+      println("Alle fuer '${appParams.processSearchText}' ermittelten PIDs: $pidList")
 
-      for (pid in ecoroPIDs) {
-        createThreadDumps(pid, jstackPattern, dumpFileBasePath)
+      for (pid in pidList) {
+        createThreadDumps(pid, jstackPattern, appParams.dumpFileDir)
       }
     } catch (e: Exception) {
       System.err.println("FEHLER: Die Datei konnte nicht generiert werden")
@@ -70,7 +73,7 @@ object Kostack {
   private fun createThreadDump(pid: String, dumpIndex: Int, jstackPattern: String, dumpFileBasePath: String) {
     exec(String.format(jstackPattern, pid)) exec@{ stdin ->
       try {
-        var line: String
+        var line: String?
         val dumpFile = Path.of(String.format(dumpFileBasePath + DUMP_FILE_PATTERN, pid, System.currentTimeMillis(), dumpIndex))
         println("ThreadDump wird erzeugt: $dumpFile")
 
@@ -92,10 +95,10 @@ object Kostack {
   }
 
   @Throws(IOException::class)
-  private fun getEcoroPIDs(): MutableList<String> {
+  private fun findPIDs(processSearchText: String): List<String> {
     val pids = mutableListOf<String>()
 
-    println("Ermittle PIDs von SHD ECORO")
+    println("Ermittle PIDs fuer '$processSearchText'")
     exec("tasklist /v /fo csv") { stdin ->
       var line: String?
 
@@ -105,10 +108,10 @@ object Kostack {
 
           if (columns.size < 2) {
             System.err.println("FEHLER: Format von 'tasklist' ist ungueltig")
-          } else if (columns[columns.size - 1].contains(PROCESS_NAME_PART)) {
+          } else if (columns[columns.size - 1].contains(processSearchText)) {
             val pid = columns[1].replace("\"".toRegex(), "")
 
-            println("PID von SHD ECORO ermittelt: $pid")
+            println("PID fuer '$processSearchText' ermittelt: $pid")
             pids.add(pid)
           }
         }
