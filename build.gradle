@@ -30,7 +30,7 @@ dependencies {
 }
 
 application {
-    mainClassName = 'com.github.fsteitz.kostack.Main'
+    mainClassName = 'com.github.fsteitz.kostack.AppKt'
 }
 
 compileKotlin {
@@ -45,3 +45,11 @@ compileTestKotlin {
     }
 }
 
+jar {
+    manifest {
+        attributes 'Main-Class': 'com.github.fsteitz.kostack.AppKt'
+    }
+
+    // Recursively collects and copies all of the project's compile dependencies and adds them to the JAR itself
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+}
