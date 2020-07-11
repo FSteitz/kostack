@@ -23,20 +23,22 @@ import java.io.IOException
  */
 class WindowsPIDFinder : PIDFinder {
 
+  private val taskListCommand = "tasklist /v /fo csv"
+
   @Throws(IOException::class)
   override fun find(processSearchText: String): List<String> {
     val pids = mutableListOf<String>()
 
-    CommandExecutor.execute("tasklist /v /fo csv") { stdin ->
+    CommandExecutor.execute(taskListCommand) { stdin ->
       var line: String?
 
       try {
         while (stdin.readLine().also { line = it } != null) {
           val columns = line?.split(",") ?: emptyList()
 
-          if (columns.size < 2) {
+          if (columns.size < 9) {
             System.err.println("FEHLER: Format von 'tasklist' ist ungueltig")
-          } else if (columns[columns.size - 1].contains(processSearchText)) {
+          } else if (processSearchTextMatches(processSearchText, columns)) {
             val pid = columns[1].replace("\"".toRegex(), "")
 
             println("PID fuer '$processSearchText' ermittelt: $pid")
@@ -50,6 +52,13 @@ class WindowsPIDFinder : PIDFinder {
     }
 
     return pids
+  }
+
+  private fun processSearchTextMatches(searchText: String, columns: List<String>): Boolean {
+    val windowTitle = columns[columns.size - 1] // Is always in the last column
+    val imageName = columns[0]                  // Is always in the first column
+
+    return windowTitle.contains(searchText) || imageName.contains(searchText)
   }
 
 }
