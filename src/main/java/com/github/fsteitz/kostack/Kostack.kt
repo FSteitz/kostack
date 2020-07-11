@@ -60,48 +60,51 @@ object Kostack {
 
   @Throws(IOException::class, InterruptedException::class)
   private fun createThreadDumps(pid: String, jstackPattern: String, dumpFileBasePath: String) {
-    println("Erzeuge insgesamt $DUMP_COUNT ThreadDumps fuer PID '$pid'")
+    println("Erzeuge insgesamt $DUMP_COUNT ThreadDumps fuer PID '$pid'...")
 
     // Zähler beginnt bei 1 um nutzerfreundlicher zu sein
     for (i in 1..DUMP_COUNT) {
-      createThreadDump(pid, i, jstackPattern, dumpFileBasePath)
-      println("ThreadDump $i von $DUMP_COUNT erzeugt. In $DUMP_DELAY_S Sek. wird der naechste erzeugt")
+      val dumpFilePath = createThreadDump(pid, i, jstackPattern, dumpFileBasePath) ?: exitProcess(-1)
+      println("ThreadDump $i von $DUMP_COUNT erzeugt: ${dumpFilePath} - In $DUMP_DELAY_S Sek. wird der naechste erzeugt")
       Thread.sleep(DUMP_DELAY_MS.toLong())
     }
 
-    println("FERTIG: Alle ThreadDumps wurden erzeugt!")
+    println("FERTIG: Alle ThreadDumps wurden erfolgreich erzeugt!")
   }
 
   @Throws(IOException::class)
-  private fun createThreadDump(pid: String, dumpIndex: Int, jstackPattern: String, dumpFileBasePath: String) {
+  private fun createThreadDump(pid: String, dumpIndex: Int, jstackPattern: String, dumpFileBasePath: String): Path? {
+    var dumpFilePath: Path? = null
     exec(String.format(jstackPattern, pid)) exec@{ stdin ->
       try {
         var line: String?
-        val dumpFile = Path.of(String.format(dumpFileBasePath + DUMP_FILE_PATTERN, pid, System.currentTimeMillis(), dumpIndex))
-        println("ThreadDump wird erzeugt: $dumpFile")
+        val path = Path.of(String.format(dumpFileBasePath + DUMP_FILE_PATTERN, pid, System.currentTimeMillis(), dumpIndex))
 
-        if (!dumpFile.toFile().createNewFile()) {
+        if (!path.toFile().createNewFile()) {
           println("ThreadDump fuer PID '$pid' konnte nicht erzeugt werden")
           return@exec
         }
 
         while (stdin.readLine().also { line = it } != null) {
-          Files.writeString(dumpFile, line + '\n', StandardOpenOption.APPEND)
+          Files.writeString(path, line + '\n', StandardOpenOption.APPEND)
         }
 
         stdin.close()
+        dumpFilePath = path
       } catch (e: IOException) {
         System.err.println("FEHLER: ThreadDump konnte nicht erzeugt werden")
         e.printStackTrace()
       }
     }
+
+    return dumpFilePath
   }
 
   @Throws(IOException::class)
   private fun findPIDs(processSearchText: String): List<String> {
     val pids = mutableListOf<String>()
 
-    println("Ermittle PIDs fuer '$processSearchText'")
+    println("Ermittle PIDs fuer '$processSearchText'...")
     exec("tasklist /v /fo csv") { stdin ->
       var line: String?
 
