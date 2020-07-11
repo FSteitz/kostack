@@ -24,18 +24,6 @@ import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 import kotlin.system.exitProcess
 
-fun main(args: Array<String>) {
-  if (args.isEmpty()) {
-    System.err.println("FEHLER: Es wurden keine Programmparameter uebergeben")
-    exitProcess(-1)
-  } else if (args.size != 3) {
-    System.err.println("FEHLER: Programmparameter sind ungueltig")
-    exitProcess(-1)
-  }
-
-  Kostack.createThreadDumps(AppParams(args[0], args[1], args[2]))
-}
-
 /**
  * @author Florian Steitz (florian@fsteitz.com)
  */
