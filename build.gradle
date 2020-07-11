@@ -27,7 +27,7 @@ repositories {
 }
 
 dependencies {
-    compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
+    compileOnly "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
 }
 
 application {
@@ -52,5 +52,5 @@ jar {
     }
 
     // Recursively collects and copies all of the project's compile dependencies and adds them to the JAR itself
-    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    from { configurations.compileOnly.collect { it.isDirectory() ? it : zipTree(it) } }
 }
