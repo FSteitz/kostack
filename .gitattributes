@@ -1,0 +1,28 @@
+# These files are text and should be normalized (e.g. convert crlf to lf)
+*.css           text
+*.gradle        text
+*.htm           text
+*.html          text
+*.java          text
+*.js            text
+*.json          text
+*.kt            text
+*.md            text
+*.properties    text
+*.sh            text
+*.txt           text
+*.xml           text
+*.yaml          text
+*.yml           text
+
+# These files are os-specific and should keep CRLF
+*.bat           eol=crlf
+
+# These files are binary and should be left untouched
+*.class         binary
+*.gif           binary
+*.ico           binary
+*.jar           binary
+*.jpg           binary
+*.jpeg          binary
+*.png           binary
