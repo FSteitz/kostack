@@ -6,11 +6,21 @@ import java.io.InputStreamReader
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
-import java.util.ArrayList
-import java.util.List
-import java.util.function.Consumer
+import kotlin.system.exitProcess
 
-object Main {
+fun main(args: Array<String>) {
+  if (args.isEmpty()) {
+    System.err.println("FEHLER: Es wurden keine Programmparameter uebergeben")
+    exitProcess(-1)
+  } else if (args.size != 2) {
+    System.err.println("FEHLER: Programmparameter sind ungueltig")
+    exitProcess(-1)
+  }
+
+  Kostack.createThreadDumps(args[0], args[1])
+}
+
+object Kostack {
 
   private const val DUMP_COUNT = 6                        // Iterationen
   private const val DUMP_DELAY_S = 5                      // In Sekunden
@@ -19,20 +29,7 @@ object Main {
   private const val PROCESS_NAME_PART = "SHD ECORO"
   private const val DUMP_FILE_PATTERN = "\\thread_%s_%s__%s.dump"
 
-  @JvmStatic
-  fun main(args: Array<String>) {
-    if (args.size == 0) {
-      System.err.println("FEHLER: Es wurden keine Programmparameter uebergeben")
-      System.exit(-1)
-    } else if (args.size != 2) {
-      System.err.println("FEHLER: Programmparameter sind ungültig")
-      System.exit(-1)
-    }
-
-    createThreadDumps(args[0], args[1])
-  }
-
-  private fun createThreadDumps(jdkHome: String, dumpFileBasePath: String) {
+  fun createThreadDumps(jdkHome: String, dumpFileBasePath: String) {
     println("JDK-Home: $jdkHome")
 
     try {
@@ -41,7 +38,7 @@ object Main {
 
       if (ecoroPIDs.size == 0) {
         println("FEHLER: Es konnte kein aktiver Prozess von SHD ECORO ermittelt werden. Es wurden keine ThreadDumps erstellt!")
-        System.exit(-1)
+        exitProcess(-1)
       }
 
       println("Alle ermittelten PIDs von SHD ECORO: $ecoroPIDs")
@@ -71,7 +68,7 @@ object Main {
 
   @Throws(IOException::class)
   private fun createThreadDump(pid: String, dumpIndex: Int, jstackPattern: String, dumpFileBasePath: String) {
-    exec(String.format(jstackPattern, pid), Consumer exec@{ stdin: BufferedReader ->
+    exec(String.format(jstackPattern, pid)) exec@{ stdin ->
       try {
         var line: String
         val dumpFile = Path.of(String.format(dumpFileBasePath + DUMP_FILE_PATTERN, pid, System.currentTimeMillis(), dumpIndex))
@@ -91,25 +88,25 @@ object Main {
         System.err.println("FEHLER: ThreadDump konnte nicht erzeugt werden")
         e.printStackTrace()
       }
-    })
+    }
   }
 
   @Throws(IOException::class)
   private fun getEcoroPIDs(): MutableList<String> {
-    val pids: MutableList<String> = ArrayList()
+    val pids = mutableListOf<String>()
 
     println("Ermittle PIDs von SHD ECORO")
-    exec("tasklist /v /fo csv", Consumer { stdin: BufferedReader ->
-      var line: String
+    exec("tasklist /v /fo csv") { stdin ->
+      var line: String?
 
       try {
         while (stdin.readLine().also { line = it } != null) {
-          val columns: Array<String?> = line.split(",").toTypedArray()
+          val columns = line?.split(",") ?: emptyList()
 
           if (columns.size < 2) {
             System.err.println("FEHLER: Format von 'tasklist' ist ungueltig")
-          } else if (columns[columns.size - 1] != null && columns[columns.size - 1]!!.contains(PROCESS_NAME_PART)) {
-            val pid = columns[1]!!.replace("\"".toRegex(), "")
+          } else if (columns[columns.size - 1].contains(PROCESS_NAME_PART)) {
+            val pid = columns[1].replace("\"".toRegex(), "")
 
             println("PID von SHD ECORO ermittelt: $pid")
             pids.add(pid)
@@ -119,20 +116,20 @@ object Main {
         System.err.println("FEHLER: ThreadDump konnte nicht erzeugt werden")
         e.printStackTrace()
       }
-    })
+    }
 
     return pids
   }
 
   @Throws(IOException::class)
-  private fun exec(command: String, stdinConsumer: Consumer<BufferedReader>) {
+  private fun exec(command: String, stdinConsumer: (BufferedReader) -> Unit) {
     val process = Runtime.getRuntime().exec(command)
     val stdin = BufferedReader(InputStreamReader(process.inputStream))
     val stderr = BufferedReader(InputStreamReader(process.errorStream))
     var line: String?
 
     // Read the output from the command
-    stdinConsumer.accept(stdin)
+    stdinConsumer(stdin)
     stdin.close()
 
     // Read any errors from the attempted command
