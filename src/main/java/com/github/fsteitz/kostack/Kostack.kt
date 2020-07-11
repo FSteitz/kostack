@@ -31,9 +31,9 @@ import kotlin.system.exitProcess
  */
 object Kostack {
 
-  private const val DUMP_COUNT = 6                                // Iterationen
-  private const val DUMP_DELAY_S = 5                              // In Sekunden
-  private const val DUMP_DELAY_MS = DUMP_DELAY_S * 1000           // In Millisekunden
+  private const val DUMP_COUNT = 6                                // Dump files per process
+  private const val DUMP_DELAY_S = 5                              // In seconds
+  private const val DUMP_DELAY_MS = DUMP_DELAY_S * 1000           // In millis
   private const val DUMP_FILE_PATTERN = "\\thread_%s_%s__%s.dump" // Example: thread_9672_1594488582405__1.dump
   private const val THREAD_EXECUTION_DELAY = 200L   // 200ms
 
@@ -77,7 +77,7 @@ object Kostack {
   private fun createThreadDumps(pid: String, jstackPattern: String, dumpFileBasePath: String) {
     println("Erzeuge insgesamt $DUMP_COUNT ThreadDumps fuer PID '$pid'...")
 
-    // Zähler beginnt bei 1 um nutzerfreundlicher zu sein
+    // Counter starts at 1 to make the console output more readable
     for (i in 1..DUMP_COUNT) {
       val dumpFilePath = createThreadDump(pid, i, jstackPattern, dumpFileBasePath) ?: exitProcess(-1)
       println("ThreadDump $i von $DUMP_COUNT fuer PID '$pid' erzeugt: ${dumpFilePath} - In $DUMP_DELAY_S Sek. wird der naechste erzeugt")
