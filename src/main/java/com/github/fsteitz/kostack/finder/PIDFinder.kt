@@ -13,25 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.github.fsteitz.kostack
-
-import com.github.fsteitz.kostack.finder.WindowsPIDFinder
-import kotlin.system.exitProcess
+package com.github.fsteitz.kostack.finder
 
 /**
  * @author Florian Steitz (florian@fsteitz.com)
  */
-fun main(args: Array<String>) {
-  if (args.isEmpty()) {
-    System.err.println("FEHLER: Es wurden keine Programmparameter uebergeben")
-    exitProcess(-1)
-  } else if (args.size != 3) {
-    System.err.println("FEHLER: Programmparameter sind ungueltig")
-    exitProcess(-1)
-  }
+interface PIDFinder {
 
-  Kostack.createThreadDumps(
-      AppParams(args[0], args[1], args[2].split(",")),
-      WindowsPIDFinder()
-  )
+  fun find(processSearchText: String): List<String>
+
 }

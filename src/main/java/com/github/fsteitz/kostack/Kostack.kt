@@ -15,10 +15,10 @@
  */
 package com.github.fsteitz.kostack
 
-import java.io.BufferedReader
+import com.github.fsteitz.kostack.command.CommandExecutor
+import com.github.fsteitz.kostack.finder.PIDFinder
 import java.io.File
 import java.io.IOException
-import java.io.InputStreamReader
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
@@ -38,12 +38,12 @@ object Kostack {
 
   private const val THREAD_EXECUTION_DELAY = 200L   // 200ms
 
-  fun createThreadDumps(appParams: AppParams) {
+  fun createThreadDumps(appParams: AppParams, pidFinder: PIDFinder) {
     val threadPool = Executors.newCachedThreadPool()
     println("Ort von jstack: ${appParams.jstackLocation}")
 
     for (processSearchText in appParams.processSearchTextList) {
-      threadPool.execute { createThreadDumps(processSearchText, appParams) }
+      threadPool.execute { createThreadDumps(processSearchText, appParams, pidFinder) }
       Thread.sleep(THREAD_EXECUTION_DELAY)
     }
 
@@ -53,10 +53,10 @@ object Kostack {
     println("FERTIG: ThreadDumps wurden erzeugt!")
   }
 
-  fun createThreadDumps(processSearchText: String, appParams: AppParams) {
+  fun createThreadDumps(processSearchText: String, appParams: AppParams, pidFinder: PIDFinder) {
     try {
       val jstackPattern = "${appParams.jstackLocation}${File.separator}jstack -l %s"
-      val pidList = findPIDs(processSearchText)
+      val pidList = findPIDs(pidFinder, processSearchText)
 
       if (pidList.isEmpty()) {
         println("FEHLER: Es konnte kein aktiver Prozess fuer '${processSearchText}' ermittelt werden. Es werden keine ThreadDumps dafuer erstellt!")
@@ -89,7 +89,7 @@ object Kostack {
   @Throws(IOException::class)
   private fun createThreadDump(pid: String, dumpIndex: Int, jstackPattern: String, dumpFileBasePath: String): Path? {
     var dumpFilePath: Path? = null
-    exec(String.format(jstackPattern, pid)) exec@{ stdin ->
+    CommandExecutor.execute(String.format(jstackPattern, pid)) exec@{ stdin ->
       try {
         var line: String?
         val path = Path.of(String.format(dumpFileBasePath + DUMP_FILE_PATTERN, pid, System.currentTimeMillis(), dumpIndex))
@@ -115,51 +115,9 @@ object Kostack {
   }
 
   @Throws(IOException::class)
-  private fun findPIDs(processSearchText: String): List<String> {
-    val pids = mutableListOf<String>()
-
+  private fun findPIDs(pidFinder: PIDFinder, processSearchText: String): List<String> {
     println("Ermittle PIDs fuer '$processSearchText'...")
-    exec("tasklist /v /fo csv") { stdin ->
-      var line: String?
-
-      try {
-        while (stdin.readLine().also { line = it } != null) {
-          val columns = line?.split(",") ?: emptyList()
-
-          if (columns.size < 2) {
-            System.err.println("FEHLER: Format von 'tasklist' ist ungueltig")
-          } else if (columns[columns.size - 1].contains(processSearchText)) {
-            val pid = columns[1].replace("\"".toRegex(), "")
-
-            println("PID fuer '$processSearchText' ermittelt: $pid")
-            pids.add(pid)
-          }
-        }
-      } catch (e: IOException) {
-        System.err.println("FEHLER: ThreadDump konnte nicht erzeugt werden")
-        e.printStackTrace()
-      }
-    }
-
-    return pids
+    return pidFinder.find(processSearchText)
   }
 
-  @Throws(IOException::class)
-  private fun exec(command: String, stdinConsumer: (BufferedReader) -> Unit) {
-    val process = Runtime.getRuntime().exec(command)
-    val stdin = BufferedReader(InputStreamReader(process.inputStream))
-    val stderr = BufferedReader(InputStreamReader(process.errorStream))
-    var line: String?
-
-    // Read the output from the command
-    stdinConsumer(stdin)
-    stdin.close()
-
-    // Read any errors from the attempted command
-    while (stderr.readLine().also { line = it } != null) {
-      println(line)
-    }
-
-    stderr.close()
-  }
 }
