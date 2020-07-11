@@ -29,5 +29,5 @@ fun main(args: Array<String>) {
     exitProcess(-1)
   }
 
-  Kostack.createThreadDumps(AppParams(args[0], args[1], args[2]))
+  Kostack.createThreadDumps(AppParams(args[0], args[1], args[2].split(",")))
 }

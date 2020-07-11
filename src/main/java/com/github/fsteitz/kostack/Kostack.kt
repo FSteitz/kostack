@@ -22,6 +22,8 @@ import java.io.InputStreamReader
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
 
 /**
@@ -29,25 +31,38 @@ import kotlin.system.exitProcess
  */
 object Kostack {
 
-  private const val DUMP_COUNT = 6                        // Iterationen
-  private const val DUMP_DELAY_S = 5                      // In Sekunden
-  private const val DUMP_DELAY_MS = DUMP_DELAY_S * 1000   // In Millisekunden
-
-  private const val DUMP_FILE_PATTERN = "\\thread_%s_%s__%s.dump"
+  private const val DUMP_COUNT = 6                                // Iterationen
+  private const val DUMP_DELAY_S = 5                              // In Sekunden
+  private const val DUMP_DELAY_MS = DUMP_DELAY_S * 1000           // In Millisekunden
+  private const val DUMP_FILE_PATTERN = "\\thread_%s_%s__%s.dump" // Example: thread_9672_1594488582405__1.dump
+  private const val THREAD_EXECUTION_DELAY = 200L   // 200ms
 
   fun createThreadDumps(appParams: AppParams) {
+    val threadPool = Executors.newCachedThreadPool()
     println("JDK-Home: ${appParams.jdkBin}")
 
+    for (processSearchText in appParams.processSearchTextList) {
+      threadPool.execute { createThreadDumps(processSearchText, appParams) }
+      Thread.sleep(THREAD_EXECUTION_DELAY)
+    }
+
+    threadPool.shutdown()
+    threadPool.awaitTermination(5, TimeUnit.MINUTES)
+
+    println("FERTIG: ThreadDumps wurden erzeugt!")
+  }
+
+  fun createThreadDumps(processSearchText: String, appParams: AppParams) {
     try {
       val jstackPattern = "${appParams.jdkBin}${File.separator}jstack -l %s"
-      val pidList = findPIDs(appParams.processSearchText)
+      val pidList = findPIDs(processSearchText)
 
       if (pidList.isEmpty()) {
-        println("FEHLER: Es konnte kein aktiver Prozess fuer '${appParams.processSearchText}' ermittelt werden. Es wurden keine ThreadDumps erstellt!")
+        println("FEHLER: Es konnte kein aktiver Prozess fuer '${processSearchText}' ermittelt werden. Es wurden keine ThreadDumps erstellt!")
         exitProcess(-1)
       }
 
-      println("Alle fuer '${appParams.processSearchText}' ermittelten PIDs: $pidList")
+      println("Alle fuer '${processSearchText}' ermittelten PIDs: $pidList")
 
       for (pid in pidList) {
         createThreadDumps(pid, jstackPattern, appParams.dumpFileDir)
@@ -65,11 +80,9 @@ object Kostack {
     // Zähler beginnt bei 1 um nutzerfreundlicher zu sein
     for (i in 1..DUMP_COUNT) {
       val dumpFilePath = createThreadDump(pid, i, jstackPattern, dumpFileBasePath) ?: exitProcess(-1)
-      println("ThreadDump $i von $DUMP_COUNT erzeugt: ${dumpFilePath} - In $DUMP_DELAY_S Sek. wird der naechste erzeugt")
+      println("ThreadDump $i von $DUMP_COUNT fuer PID '$pid' erzeugt: ${dumpFilePath} - In $DUMP_DELAY_S Sek. wird der naechste erzeugt")
       Thread.sleep(DUMP_DELAY_MS.toLong())
     }
-
-    println("FERTIG: Alle ThreadDumps wurden erfolgreich erzeugt!")
   }
 
   @Throws(IOException::class)

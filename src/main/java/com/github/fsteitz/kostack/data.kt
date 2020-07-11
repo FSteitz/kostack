@@ -18,4 +18,4 @@ package com.github.fsteitz.kostack
 /**
  * @author Florian Steitz (florian@fsteitz.com)
  */
-data class AppParams(val jdkBin: String, val dumpFileDir: String, val processSearchText: String)
+data class AppParams(val jdkBin: String, val dumpFileDir: String, val processSearchTextList: List<String>)
